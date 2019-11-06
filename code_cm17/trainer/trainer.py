@@ -48,7 +48,7 @@ def train(args, train_tumor_coord_path, train_normal_coord_path, valid_tumor_coo
 
     # Parameters
     train_transform_params = {'image_size': (256, 256),
-                          'batch_size': args.batch_size,
+                          'batch_size': args.train_bz,
                           'n_classes': 2,
                           'n_channels': 3,
                           'shuffle': True,
@@ -58,7 +58,7 @@ def train(args, train_tumor_coord_path, train_normal_coord_path, valid_tumor_coo
                          }
 
     valid_transform_params = {'image_size': (256, 256),
-                          'batch_size': args.batch_size,
+                          'batch_size': args.valid_bz,
                           'n_classes': 2,
                           'n_channels': 3,
                           'shuffle': True,
@@ -180,7 +180,8 @@ if __name__ == '__main__':
     parser.add_argument('model',type=str, choices=['densenet','inception','deeplab'], help="model to train")
     parser.add_argument('fold',type=int,help="Which fold to train on")
     parser.add_argument('--GPU', default='0', type=str, help='which GPU to use. default 0')
-    parser.add_argument('--batch_size', default='16', type=int, help='batch size for training and validation')
+    parser.add_argument('--train_bz', default='16', type=int, help='batch size for training')
+    parser.add_argument('--valid_bz', default='32', type=int, help='batch size for training')
     parser.add_argument('--override', action='store_true', help='Whether to override the directory if the directory already exists')
 
     args = parser.parse_args()
@@ -192,7 +193,7 @@ if __name__ == '__main__':
     fold = args.fold
     model_id = '%s_200k' % (args.model)
     print("-"*10)
-    print("Training a %s model | %dfold %d | batch size %d | GPU %s" %( args.model, kfold_k, args.fold, args.batch_size, args.GPU))
+    print("Training a %s model | %dfold %d | batch size %d,%d | GPU %s" %( args.model, kfold_k, args.fold, args.train_bz, args.valid_bz, args.GPU))
     print("Saving model to %s" % model_id)
     print("-"*10)
 
