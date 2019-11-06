@@ -1,1 +1,1 @@
-Codes for the MICCAI Challenge : https://paip2019.grand-challenge.org/ (PAIP 2019)
+# DigitalHistoPath
