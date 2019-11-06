@@ -1,0 +1,18 @@
+{
+ "model": "resnet18",
+ "use_crf": true,
+ "batch_size": 1,
+ "image_size": 1024,
+ "lr": 0.001,
+ "momentum": 0.9,
+ "data_path_tumor_train" : "/media/mak/Data/Projects/Camelyon16/Dataset/PATCHES_TUMOR_TRAIN",
+ "data_path_normal_train" : "/media/mak/Data/Projects/Camelyon16/Dataset/PATCHES_NORMAL_TRAIN",
+ "data_path_tumor_valid" : "/media/mak/Data/Projects/Camelyon16/Dataset/PATCHES_TUMOR_VALID",
+ "data_path_normal_valid" : "/media/mak/Data/Projects/Camelyon16/Dataset/PATCHES_NORMAL_VALID", 
+ "data_path": "/media/mak/mirlproject1/CAMELYON16/TrainingData/normal_tumor",
+ "json_path_train": "../../jsons/train",
+ "json_path_valid": "../../jsons/valid",
+ "epoch": 20,
+ "log_every": 100,
+ "pretrain_model": 0
+}
