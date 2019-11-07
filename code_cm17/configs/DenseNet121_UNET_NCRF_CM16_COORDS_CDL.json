@@ -1,0 +1,8 @@
+{
+ "model": "DenseNet121_UNET",
+ "image_size":512, 
+ "batch_size": 30,
+ "train_data" : "/media/mak/Data/Projects/Camelyon17/code/keras_framework/patch_coords/ncrf_cm16/train.txt",
+ "valid_data" : "/media/mak/Data/Projects/Camelyon17/code/keras_framework/patch_coords/ncrf_cm16/valid.txt",
+ "epoch": 10
+}

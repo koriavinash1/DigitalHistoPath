@@ -1,0 +1,15 @@
+{
+ "model": "DenseNet121_UNET_AUTOMINE",
+ "cm16_train_data_path" : "/media/mak/mirlproject1/CAMELYON16/TrainingData/normal_tumor",
+ "cm16_train_annotation_path" : "/media/mak/mirlproject1/CAMELYON16/TrainingData/lesion_masks",
+ "cm16_test_data_path" : "/media/mak/mirlproject1/CAMELYON16/Testset/Images",
+ "cm16_test_annotation_path" : "/media/mak/mirlproject1/CAMELYON16/Testset/Backup/Masks/tif_files",
+ "cm17_train_data_path" :  "/media/mak/mirlproject1/CAMELYON17/training/dataset",
+ "cm17_train_annotation_path" : "/media/mak/mirlproject1/CAMELYON17/TrainingData/lesion_masks",
+ "cm17_test_data_path" :  "/media/mak/mirlproject1/CAMELYON17/testing/centers/dataset",
+ "train_csv_path" : "",
+ "valid_csv_path" : "",
+ "image_size":768,
+ "batch_size": 1,
+ "epoch": 15
+}

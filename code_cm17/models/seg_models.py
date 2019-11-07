@@ -88,10 +88,10 @@ def transition_block(x, reduction, name):
     x = AveragePooling2D(2, strides=2, name=name + '_pool')(x)
     return x
 
-def unet_densenet121(input_shape,n_class, weights='imagenet'):
+def unet_densenet121(input_shape, weights='imagenet'):
     blocks = [6, 12, 24, 16]
     n_channel = 3
-    #n_class defined from params
+    n_class = 2
     img_input = Input(input_shape + (n_channel,))
     
     x = ZeroPadding2D(padding=((3, 3), (3, 3)))(img_input)
@@ -270,10 +270,8 @@ def get_inception_resnet_v2_unet_softmax(input_shape, weights='imagenet'):
     n_class = 2
     img_input = Input(input_shape + (n_channel,))
 
-    inp = Input(input_shape + (4,))
-    
     # Stem block: 35 x 35 x 192
-    x = conv2d_bn(inp, 32, 3, strides=2, padding='same')
+    x = conv2d_bn(img_input, 32, 3, strides=2, padding='same')
     x = conv2d_bn(x, 32, 3, padding='same')
     x = conv2d_bn(x, 64, 3)
     conv1 = x
@@ -367,7 +365,7 @@ def get_inception_resnet_v2_unet_softmax(input_shape, weights='imagenet'):
     conv10 = conv_block(conv10, 64)
     res = Conv2D(n_class, (1, 1), activation='softmax')(conv10)
     
-    model = Model(inp, res)
+    model = Model(img_input, res)
     
     if weights == 'imagenet':
         inception_resnet_v2 = InceptionResNetV2(weights=weights, include_top=False, input_shape=input_shape + (3,))
