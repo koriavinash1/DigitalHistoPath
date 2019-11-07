@@ -2,7 +2,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import os, sys
+import os, sys,glob
 from datetime import datetime
 import numpy as np
 import random
@@ -183,6 +183,7 @@ if __name__ == '__main__':
     parser.add_argument('--train_bz', default='16', type=int, help='batch size for training')
     parser.add_argument('--valid_bz', default='32', type=int, help='batch size for training')
     parser.add_argument('--override', action='store_true', help='Whether to override the directory if the directory already exists')
+    parser.add_argument('-r','--resume', action='store_true', help='Resume training if previous training was found')
 
     args = parser.parse_args()
 
@@ -215,15 +216,24 @@ if __name__ == '__main__':
 
     # Model Path
     model_path = '../../results/saved_models/%s/%dfold_%d'%(model_id,kfold_k,fold)
-    try:
-        os.makedirs(model_path)
-    except FileExistsError:
-        if os.listdir(model_path) != []:
-            print("Out folder exists and is non-empty, continue?")
-            print(model_path)
-            input()
-
-    pretrained_model_path = None
-    initial_epoch = 0
-    train(args, train_tumor_coord_path, train_normal_coord_path, valid_tumor_coord_path, valid_normal_coord_path,\
-     model_path, use_pretrained_model_weights_path=pretrained_model_path, initial_epoch=initial_epoch, n_Epochs=100)
+    if args.resume:
+        model_paths = glob.glob(os.path.join(model_path,"model*"))
+        model_paths.sort()
+        pretrained_model_path = model_paths[-1]
+        initial_epoch = int(os.path.basename(pretrained_model_path).split('-')[0].split('.')[1])
+        print("Continue with model %s from epoch %d ?"% (pretrained_model_path, initial_epoch+1))
+        input()
+        train(args, train_tumor_coord_path, train_normal_coord_path, valid_tumor_coord_path, valid_normal_coord_path,\
+         model_path, use_pretrained_model_weights_path=pretrained_model_path, initial_epoch=initial_epoch, n_Epochs=100)
+    else:
+        try:
+            os.makedirs(model_path)
+        except FileExistsError:
+            if os.listdir(model_path) != []:
+                print("Out folder exists and is non-empty, continue?")
+                print(model_path)
+                input()
+        pretrained_model_path = None
+        initial_epoch = 0
+        train(args, train_tumor_coord_path, train_normal_coord_path, valid_tumor_coord_path, valid_normal_coord_path,\
+         model_path, use_pretrained_model_weights_path=pretrained_model_path, initial_epoch=initial_epoch, n_Epochs=100)
