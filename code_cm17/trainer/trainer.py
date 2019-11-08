@@ -85,7 +85,7 @@ def train(args, train_tumor_coord_path, train_normal_coord_path, valid_tumor_coo
         if args.model == 'deeplab':
             print ('Model Starting with Pascal-VOC weights')
             model = Deeplabv3(input_shape=(256, 256, 3), weights='pascal_voc', classes=2,  backbone='xception', OS=16, activation='softmax')
-            model.summary()
+            # model.summary()
             lrSchedule = LearningRateScheduler(lambda epoch: schedule_steps(epoch, [(5e-6, 2), (2e-4, 15), (1e-4, 50), (5e-5, 70), (2e-5, 80), (1e-5, 100)]))
             model.compile(loss=softmax_dice_loss,
                             optimizer=Adam(lr=5e-6, amsgrad=True),
