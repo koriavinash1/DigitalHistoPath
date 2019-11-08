@@ -108,7 +108,6 @@ def train(args, train_tumor_coord_path, train_normal_coord_path, valid_tumor_coo
             else:
                 print("Model type not known")
 
-            model.save_weights(os.path.join(model_path, 'model-0.imagenet.h5'))
             model.compile(loss=softmax_dice_loss,
                             optimizer=Adam(lr=3e-4, amsgrad=True),
                             metrics=[dice_coef_rounded_ch0, dice_coef_rounded_ch1, 
