@@ -180,7 +180,7 @@ if __name__ == '__main__':
     parser.add_argument('fold',type=int,help="Which fold to train on")
     parser.add_argument('--GPU', default='0', type=str, help='which GPU to use. default 0')
     parser.add_argument('--train_bz', default='16', type=int, help='batch size for training')
-    parser.add_argument('--valid_bz', default='32', type=int, help='batch size for training')
+    parser.add_argument('--valid_bz', default='32', type=int, help='batch size for vallation')
     parser.add_argument('--override', action='store_true', help='Whether to override the directory if the directory already exists')
     parser.add_argument('-r','--resume', action='store_true', help='Resume training if previous training was found')
 
