@@ -1,7 +1,7 @@
 # DigitalHistoPath
 This repository contains the code for the cancer analysis framework proposed in [this paper](https://arxiv.org/abs/2001.00258)
 
-#Brief Overview of Framework 
+# Brief Overview of Framework 
 The framework consists of a segmentation algorithm optimized for histopathology tissue samples. A patch-based approach is utilized to break down the large size of these images.
 
 It also has the code to empirically calculate the viable tumor burden. Viable tumor burden is the ratio of the viable tumor region to the whole tumor region. 
@@ -16,3 +16,4 @@ Our framework placed in several [grand-challenges](https://grand-challenge.org/c
 | [DigestPath 2019](https://digestpath2019.grand-challenge.org/Dataset/)     | Segmentation of Colon Cancer   | 4<sup>th</sup>       |
 
 
+### Refer [DigiPathAI](https://github.com/haranrk/DigiPathAI) for trained model and inference scripts 
