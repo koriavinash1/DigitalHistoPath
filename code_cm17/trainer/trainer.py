@@ -108,6 +108,7 @@ def train(args, train_tumor_coord_path, train_normal_coord_path, valid_tumor_coo
             else:
                 print("Model type not known")
 
+            model.save_weights(os.path.join(model_path, 'model-0.imagenet.h5'))
             model.compile(loss=softmax_dice_loss,
                             optimizer=Adam(lr=3e-4, amsgrad=True),
                             metrics=[dice_coef_rounded_ch0, dice_coef_rounded_ch1, 
@@ -175,12 +176,12 @@ def train(args, train_tumor_coord_path, train_normal_coord_path, valid_tumor_coo
     K.clear_session()
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Training DFCN')
+    parser = argparse.ArgumentParser(description='Training the models')
     parser.add_argument('model',type=str, choices=['densenet','inception','deeplab'], help="model to train")
     parser.add_argument('fold',type=int,help="Which fold to train on")
     parser.add_argument('--GPU', default='0', type=str, help='which GPU to use. default 0')
     parser.add_argument('--train_bz', default='16', type=int, help='batch size for training')
-    parser.add_argument('--valid_bz', default='32', type=int, help='batch size for vallation')
+    parser.add_argument('--valid_bz', default='32', type=int, help='batch size for inferencing (validation set at the end of every epoch)')
     parser.add_argument('--override', action='store_true', help='Whether to override the directory if the directory already exists')
     parser.add_argument('-r','--resume', action='store_true', help='Resume training if previous training was found')
 
