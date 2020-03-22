@@ -1,7 +1,7 @@
 # DigitalHistoPath
 This repository contains the code for the cancer analysis framework proposed in [this paper](https://arxiv.org/abs/2001.00258)
 
-# Brief Overview of Framework 
+## Brief Overview of Framework 
 The framework consists of a segmentation algorithm optimized for histopathology tissue samples. A patch-based approach is utilized to break down the large size of these images.
 
 It also has the code to empirically calculate the viable tumor burden. Viable tumor burden is the ratio of the viable tumor region to the whole tumor region. 
@@ -22,6 +22,9 @@ Training is divided into two stages
 1. Model training - The text files are used to train the models by generating the images on the fly
 
 #### Model training
+The `points_extractor.py` under `code_cm17/patch_extraction` is responsible for this.
+
+#### Model training
 Run the `trainer.py` file present under `code_cm17/trainer` to train the three models
 
 ## DigiPathAI
@@ -32,7 +35,7 @@ We packaged our inference pipeline into an full-fledged GUI application. Check i
 - Haran Rajkumar (haranrajkumar97@gmail.com)
 - Mahendra Khened (mahendrakhened@gmail.com)
 
-### Citation
+## Citation
 If you find this reference implementation useful in your research, please consider citing:
 ```
 @article{khened2020generalized,
