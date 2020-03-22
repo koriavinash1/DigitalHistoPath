@@ -17,3 +17,14 @@ Our framework placed in several [grand-challenges](https://grand-challenge.org/c
 
 
 ### Refer [DigiPathAI](https://github.com/haranrk/DigiPathAI) for trained model and inference scripts 
+
+### Citation
+If you find this reference implementation useful in your research, please consider citing:
+```
+@article{khened2020generalized,
+  title={A Generalized Deep Learning Framework for Whole-Slide Image Segmentation and Analysis},
+  author={Khened, Mahendra and Kori, Avinash and Rajkumar, Haran and Srinivasan, Balaji and Krishnamurthi, Ganapathy},
+  journal={arXiv preprint arXiv:2001.00258},
+  year={2020}
+}
+```
