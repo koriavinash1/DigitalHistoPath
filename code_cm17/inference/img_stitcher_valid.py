@@ -34,6 +34,7 @@ import itertools
 from six.moves import range
 
 import time
+import argparse 
 import cv2
 from skimage.color import rgb2hsv
 from skimage.filters import threshold_otsu
@@ -42,6 +43,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(os.getcwd())))
 from models.seg_models import get_inception_resnet_v2_unet_softmax, unet_densenet121
 from models.deeplabv3p_original import Deeplabv3
+
 # Random Seeds
 np.random.seed(0)
 random.seed(0)
@@ -51,10 +53,6 @@ import pandas as pd
 
 import tifffile 
 import skimage.io as io
-
-
-# In[50]:
-
 
 # Image Helper Functions
 def imsave(*args, **kwargs):
@@ -296,11 +294,6 @@ def calc_jacc_score(x,y,smoothing=1):
     denominator = np.sum(np.logical_or(x,y))
     return (numerator+smoothing)/(denominator+smoothing)
 
-
-
-# In[41]:
-
-
 # DataLoader Implementation
 class WSIStridedPatchDataset(Dataset):
     """
@@ -373,9 +366,9 @@ class WSIStridedPatchDataset(Dataset):
             # Generate tissue mask on the fly    
             
             self._mask = TissueMaskGeneration(self._slide, self._level)
+
         # morphological operations ensure the holes are filled in tissue mask
         # and minor points are aggregated to form a larger chunk         
-
         self._mask = BinMorphoProcessMask(np.uint8(self._mask),self._level)
         # self._all_bbox_mask = get_all_bbox_masks(self._mask, factor)
         # self._largest_bbox_mask = find_largest_bbox(self._mask, factor)
@@ -497,220 +490,226 @@ class WSIStridedPatchDataset(Dataset):
             img = (img - 128.0)/128.0
    
         return (img, x, y, label_img)
-#CONFIG
-# batch_size = 40
-# image_size = 256
-# sampling_stride = 128
-batch_size = 16
-image_size = 1024
-sampling_stride = 512
-kfold_k = 5
-fold = 'all'
-out_dir_root = '../../results/saved_imgs'
 
-#Model loading
-os.environ["CUDA_VISIBLE_DEVICES"] = '0'
-core_config = tf.ConfigProto()
-core_config.gpu_options.allow_growth = False
-# core_config.gpu_options.per_process_gpu_memory_fraction=0.47
-session =tf.Session(config=core_config) 
-K.set_session(session)
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('models',type=str,help="Comma-separated list of models to train. Format: modelname-fold. Eg. inception-0 will take the model tagged as sel in the first fold of inceptino")
+    parser.add_argument('fold',choices=['1','2','3','4','5','all','valid'],type=str,help="Fold of the training data to infer on")
+    parser.add_argument('-x','--save-strategy', choices=['score','images'], type=str, help="Whether to save only the jaccard indices or the full images")
+    parser.add_argument('-b','--batch_sz',default=16,type=int,help="Batch size for inference")
+    parser.add_argument('-i', '--patch_sz', default=1024,type=int,help="Patch size for inference")
+    parser.add_argument('-s', '--stride', default=128,type=int,help="Sampling size for inference")
+    parser.add_argument('--GPU', default='0', type=str, help='which GPU to use. default 0')
 
-#Inception
-def load_incep_resnet(model_path):
-    model = get_inception_resnet_v2_unet_softmax((None, None), weights=None)
-    model.load_weights(model_path)
-    print ("Loaded Model Weights %s" % model_path)
-    return model
+    #CONFIG
+    args = parser.parse_args()
+    kfold_k = 5
+    batch_size = args.batch_sz
+    image_size = args.patch_sz
+    sampling_stride = args.stride
+    fold = args.fold
+    out_dir_root = '../../results/saved_imgs'
 
-def load_unet_densenet(model_path):
-    model = unet_densenet121((None, None), weights=None)
-    model.load_weights(model_path)
-    print ("Loaded Model Weights %s" % model_path)
-    return model
+    #Model loading
+    os.environ["CUDA_VISIBLE_DEVICES"] = args.GPU
+    core_config = tf.ConfigProto()
+    core_config.gpu_options.allow_growth = False
+    # core_config.gpu_options.per_process_gpu_memory_fraction=0.47
+    session =tf.Session(config=core_config) 
+    K.set_session(session)
 
-def load_deeplabv3(model_path, OS):
-    model = Deeplabv3(input_shape=(image_size, image_size, 3),weights=None,classes=2,activation='softmax',backbone='xception',OS=OS)
-    model.load_weights(model_path)
-    print ("Loaded Model Weights %s" % model_path)
-    return model
+    #Inception
+    def load_incep_resnet(model_path):
+        model = get_inception_resnet_v2_unet_softmax((None, None), weights=None)
+        model.load_weights(model_path)
+        print ("Loaded Model Weights %s" % model_path)
+        return model
 
-model_dict = {
-        'train_40': load_incep_resnet('../../results/saved_models/incep_imagenet_200k/5fold_0/sel-model.11-0.16.h5'),
-        'train_41': load_unet_densenet('../../results/saved_models/dense_viable_200k/5fold_3/model.28-0.08.h5'),
-        'train_42': load_deeplabv3('../../results/saved_models/deeplab_viable_200k/5fold_4/sel-model.20-0.13.h5',OS=16),
-        }
-model_keys = list(model_dict.keys())
-ensemble_key = 'train_43'
-model_dict[ensemble_key] = 'ensemble'
-out_dir_dict = {}
-models_to_save = [ensemble_key] + model_keys
+    def load_unet_densenet(model_path):
+        model = unet_densenet121((None, None), weights=None)
+        model.load_weights(model_path)
+        print ("Loaded Model Weights %s" % model_path)
+        return model
 
-for key in models_to_save:
-    out_dir_dict[key] = os.path.join(out_dir_root,key)
-    try:
-        os.makedirs(out_dir_dict[key])
-        print("Saving to %s" % (out_dir_dict[key]))
-    except FileExistsError:
-        if os.listdir(out_dir_dict[key]) != []:
-            print("Out folder exists and is non-empty, continue?")
-            print(out_dir_dict[key])
-            # input()
+    def load_deeplabv3(model_path, OS):
+        model = Deeplabv3(input_shape=(image_size, image_size, 3),weights=None,classes=2,activation='softmax',backbone='xception',OS=OS)
+        model.load_weights(model_path)
+        print ("Loaded Model Weights %s" % model_path)
+        return model
 
-#Stitcher
-start_time = time.time()
+    infer_paths = glob.glob(os.path.join(out_dir_root,"infer-*"))
+    infer_paths.sort()
+    last_infer_path_id = int(infer_paths[-1].split('-')[-1])
 
-mode = 'validation'
-if fold == 'all':
-    sample_ids = os.listdir('../../data/raw-data/train')
-else:
-    sample_ids = [ x.split('/')[-2] for x in list(pd.read_csv('../../data/raw-data/cross_val_splits_%d_whole/%s_fold_%d.csv'%(kfold_k,mode,fold))['Image_Path'])]
-
-# close_kernel = np.ones((20, 20), dtype=np.uint8)
-# print("Total %d" %len(sample_ids))
-# wsi_ids = ['160','192','156']
-# wsi_paths = ['../../data/raw-data/test/%s.svs' % x for x in wsi_ids]
-# wsi_paths = glob.glob('../../data/raw-data/test/*.svs')
-# print(wsi_paths)
-
-# print("Total %d" %len(wsi_paths))
-# for i,wsi_path in enumerate(wsi_paths):
-    # print(i,'/', len(wsi_paths),wsi_path)
-    # label_path=None
-
-# total_jacc_score_dict = {}
-# for key in models_to_save:
-    # total_jacc_score_dict[key] = 0
-for i,sample_id in enumerate(sample_ids):
-    print(i+1,'/', len(sample_ids),sample_id)
-    sample_dir = os.path.join('..','..','data','raw-data','train',sample_id)
-    wsi_path = glob.glob(os.path.join(sample_dir,'*.svs'))[0]
-    label_path = glob.glob(os.path.join(sample_dir,'*viable*.tiff'))[0]
-
-    wsi_obj = openslide.OpenSlide(wsi_path)
-    x_max_dim,y_max_dim = wsi_obj.level_dimensions[0]
-    count_map = np.zeros(wsi_obj.level_dimensions[0],dtype='uint8')
-    prd_im_fll_dict = {}
-    for key in models_to_save:
-        # prd_im_fll_dict[key] = np.zeros(wsi_obj.level_dimensions[0])
-        prd_im_fll_dict[key] = np.memmap('/home/brats/Documents/memmaps/%s.dat'%(key), dtype=np.float32,mode='w+', shape=(wsi_obj.level_dimensions[0]))                                                   
-
-    if len(wsi_obj.level_dimensions) == 3:
-        level = 2
-    elif len(wsi_obj.level_dimensions) == 4:
-        level = 3
-    scld_dms = wsi_obj.level_dimensions[level]
-    scale_sampling_stride = sampling_stride//int(wsi_obj.level_downsamples[level])
-    print("Level %d , stride %d, scale stride %d" %(level,sampling_stride, scale_sampling_stride))
-    
-    scale = lambda x: cv2.resize(x,tuple(reversed(scld_dms))).T
-    mask_path = None
-    start_time = time.time()
-    dataset_obj = WSIStridedPatchDataset(wsi_path, 
-                                        mask_path,
-                                        label_path,
-                                        image_size=image_size,
-                                        normalize=True,
-                                        flip=None, rotate=None,
-                                        level=level, sampling_stride=scale_sampling_stride, roi_masking=True)
-
-    dataloader = DataLoader(dataset_obj, batch_size=batch_size, num_workers=batch_size, drop_last=True)
-    dataset_obj.save_scaled_imgs()
-    out_file = wsi_path.split('/')[-1].split('.')[0]
-    # out_file = sample_id
-
-    print(dataset_obj.get_mask().shape)
-    st_im = dataset_obj.get_strided_mask()
-    mask_im = np.dstack([dataset_obj.get_mask().T]*3).astype('uint8')*255
-    st_im = np.dstack([dataset_obj.get_strided_mask().T]*3).astype('uint8')*255
-    im_im = np.array(dataset_obj._slide_scaled.convert('RGB'))
-    ov_im = mask_im/2 + im_im/2
-    ov_im_stride = st_im/2 + im_im/2
-    for key in models_to_save:
-        imsave(ov_im.astype('uint8'),mask_im,ov_im_stride,(im_im), out=os.path.join(out_dir_dict[key],'mask_'+out_file+'.png'))
-
-    print("Total iterations: %d %d" % (dataloader.__len__(), dataloader.dataset.__len__()))
-    for i,(data, xes, ys, label) in enumerate(dataloader):
-        tmp_pls= lambda x: x + image_size
-        tmp_mns= lambda x: x 
-        image_patches = data.cpu().data.numpy()
-        image_patches = data.cpu().data.numpy()
+    model_codes = args.models.split(',')
+    model_dict= {}
+    for model_code in model_codes:
+        last_infer_path_id +=1
+        model_type,model_fold = model_code.split('-')
+        model_path = glob.glob('../../results/saved_models/%s_200k/5fold_%s/sel-*' %(model_type, model_fold))[0]
+        if model_type == 'inception':
+            model_dict['infer-%d'%last_infer_path_id] = load_incep_resnet(model_path)
+        elif model_type == 'densenet':
+            model_dict['infer-%d'%last_infer_path_id] = load_unet_densenet(model_path)
+        elif model_type == 'deeplab':
+            model_dict['infer-%d'%last_infer_path_id] = load_deeplabv3(model_path,16)
         
-        pred_map_dict = {}
-        pred_map_dict[ensemble_key] = 0
-        for key in model_keys:
-            pred_map_dict[key] = model_dict[key].predict(image_patches,verbose=0,batch_size=8)
-            # pred_map_dict[key] = model_dict[key].predict(image_patches,verbose=0,batch_size=1)
-            pred_map_dict[ensemble_key]+=pred_map_dict[key]
-        pred_map_dict[ensemble_key]/=len(model_keys)
-    
-        actual_batch_size =  image_patches.shape[0]
-        for j in range(actual_batch_size):
-            x = int(xes[j])
-            y = int(ys[j])
+    model_keys = list(model_dict.keys())
+    ensemble_key = 'train_43'
+    model_dict[ensemble_key] = 'ensemble'
+    out_dir_dict = {}
+    models_to_save = [ensemble_key] + model_keys
 
-            wsi_img = image_patches[j]*128+128
-            patch_mask = TissueMaskGenerationPatch(wsi_img)
+    for key in models_to_save:
+        out_dir_dict[key] = os.path.join(out_dir_root,key)
+        try:
+            os.makedirs(out_dir_dict[key])
+            print("Saving to %s" % (out_dir_dict[key]))
+        except FileExistsError:
+            if os.listdir(out_dir_dict[key]) != []:
+                print("Out folder exists and is non-empty, continue?")
+                print(out_dir_dict[key])
+                input()
 
-            #CRF
-            # prediction = red_map[j,:,:,:]
-            # prediction = post_process_crf(wsi_img,prediction,2)
-            for key in models_to_save:
-                prediction = pred_map_dict[key][j,:,:,1]
-
-                prediction*=patch_mask
-
-                prd_im_fll_dict[key][tmp_mns(x):tmp_pls(x),tmp_mns(y):tmp_pls(y)] += prediction
-            count_map[tmp_mns(x):tmp_pls(x),tmp_mns(y):tmp_pls(y)] += np.ones((image_size,image_size),dtype='uint8')
-        if (i+1)%100==0 or i==0 or i<10:
-            print("Completed %i Time elapsed %.2f min | Max count %d "%(i,(time.time()-start_time)/60,count_map.max()))
-        
-    print("Fully completed %i Time elapsed %.2f min | Max count %d "%(i,(time.time()-start_time)/60,count_map.max()))
+    #Stitcher
     start_time = time.time()
 
-    print("\t Dividing by count_map")
-    np.place(count_map, count_map==0, 1)
-    for key in models_to_save:
-        prd_im_fll_dict[key]/=count_map
-    # scaled_count_map = scale(count_map)
-    # scaled_count_map = scaled_count_map*255//scaled_count_map.max()
-    del count_map
-    gc.collect()
+    mode = 'validation'
+    if fold == 'all':
+        sample_ids = os.listdir('../../data/raw-data/train')
+    else:
+        sample_ids = [ x.split('/')[-2] for x in list(pd.read_csv('../../data/raw-data/cross_val_splits_%d_whole/%s_fold_%d.csv'%(kfold_k,mode,fold))['Image_Path'])]
 
-    print("\t Scaling prediciton")
-    prob_map_dict = {}
-    for key in  models_to_save:
-        prob_map_dict[key] = scale(prd_im_fll_dict[key])
-        prob_map_dict[key] = (prob_map_dict[key]*255).astype('uint8')
+    for i,sample_id in enumerate(sample_ids):
+        print(i+1,'/', len(sample_ids),sample_id)
+        sample_dir = os.path.join('..','..','data','raw-data','train',sample_id)
+        wsi_path = glob.glob(os.path.join(sample_dir,'*.svs'))[0]
+        label_path = glob.glob(os.path.join(sample_dir,'*viable*.tiff'))[0]
 
-    print("\t Thresholding prediction")
-    threshold = 0.5
-    for key in  models_to_save:
-        np.place(prd_im_fll_dict[key],prd_im_fll_dict[key]>=threshold, 1)
-        np.place(prd_im_fll_dict[key],prd_im_fll_dict[key]<threshold, 0)
+        wsi_obj = openslide.OpenSlide(wsi_path)
+        x_max_dim,y_max_dim = wsi_obj.level_dimensions[0]
+        count_map = np.zeros(wsi_obj.level_dimensions[0],dtype='uint8')
+        prd_im_fll_dict = {}
+        for key in models_to_save:
+            # prd_im_fll_dict[key] = np.zeros(wsi_obj.level_dimensions[0])
+            prd_im_fll_dict[key] = np.memmap('/home/brats/Documents/memmaps/%s.dat'%(key), dtype=np.float32,mode='w+', shape=(wsi_obj.level_dimensions[0]))                                                   
 
-    # print("\t Saving ground truth")
-    # save_model_keys = models_to_save
-    # for key in  save_model_keys:
-        # print("\t Saving to %s %s" %(out_file,key))
-        # tifffile.imsave(os.path.join(out_dir_dict[key],out_file)+'.tif', prd_im_fll_dict[key].T, compress=9)
-    # print("\t Calculated in %f" % ((time.time() - start_time)/60))
-    # start_time = time.time()
+        if len(wsi_obj.level_dimensions) == 3:
+            level = 2
+        elif len(wsi_obj.level_dimensions) == 4:
+            level = 3
+        scld_dms = wsi_obj.level_dimensions[level]
+        scale_sampling_stride = sampling_stride//int(wsi_obj.level_downsamples[level])
+        print("Level %d , stride %d, scale stride %d" %(level,sampling_stride, scale_sampling_stride))
+        
+        scale = lambda x: cv2.resize(x,tuple(reversed(scld_dms))).T
+        mask_path = None
+        start_time = time.time()
+        dataset_obj = WSIStridedPatchDataset(wsi_path, 
+                                            mask_path,
+                                            label_path,
+                                            image_size=image_size,
+                                            normalize=True,
+                                            flip=None, rotate=None,
+                                            level=level, sampling_stride=scale_sampling_stride, roi_masking=True)
 
-    scaled_prd_im_fll_dict = {}
-    for key in  models_to_save:
-        scaled_prd_im_fll_dict[key] = scale(prd_im_fll_dict[key])
-    del prd_im_fll_dict
-    gc.collect()
+        dataloader = DataLoader(dataset_obj, batch_size=batch_size, num_workers=batch_size, drop_last=True)
+        dataset_obj.save_scaled_imgs()
+        out_file = wsi_path.split('/')[-1].split('.')[0]
+        # out_file = sample_id
 
-    # mask_im = np.dstack([dataset_obj.get_mask().T]*3).astype('uint8')*255
-    mask_im = np.dstack([TissueMaskGenerationPatch(im_im)]*3).astype('uint8')*255
-    for key in  models_to_save:
-        mask_im[:,:,0] = scaled_prd_im_fll_dict[key]*255
-        ov_prob_stride = st_im + (np.dstack([prob_map_dict[key]]*3)*255).astype('uint8')
-        np.place(ov_prob_stride,ov_prob_stride>255,255)
-        imsave(mask_im,ov_prob_stride,prob_map_dict[key],scaled_prd_im_fll_dict[key],im_im,out=os.path.join(out_dir_dict[key],'ref_'+out_file)+'.png')
+        print(dataset_obj.get_mask().shape)
+        st_im = dataset_obj.get_strided_mask()
+        mask_im = np.dstack([dataset_obj.get_mask().T]*3).astype('uint8')*255
+        st_im = np.dstack([dataset_obj.get_strided_mask().T]*3).astype('uint8')*255
+        im_im = np.array(dataset_obj._slide_scaled.convert('RGB'))
+        ov_im = mask_im/2 + im_im/2
+        ov_im_stride = st_im/2 + im_im/2
+        for key in models_to_save:
+            imsave(ov_im.astype('uint8'),mask_im,ov_im_stride,(im_im), out=os.path.join(out_dir_dict[key],'mask_'+out_file+'.png'))
 
-# for key in  models_to_save:
-    # with open(os.path.join(out_dir_dict[key],'jacc_scores.txt'), 'a') as f:
-        # f.write("Total,%f\n" %(total_jacc_score_dict[key]/len(sample_ids)))
+        print("Total iterations: %d %d" % (dataloader.__len__(), dataloader.dataset.__len__()))
+        for i,(data, xes, ys, label) in enumerate(dataloader):
+            tmp_pls= lambda x: x + image_size
+            tmp_mns= lambda x: x 
+            image_patches = data.cpu().data.numpy()
+            image_patches = data.cpu().data.numpy()
+            
+            pred_map_dict = {}
+            pred_map_dict[ensemble_key] = 0
+            for key in model_keys:
+                pred_map_dict[key] = model_dict[key].predict(image_patches,verbose=0,batch_size=8)
+                # pred_map_dict[key] = model_dict[key].predict(image_patches,verbose=0,batch_size=1)
+                pred_map_dict[ensemble_key]+=pred_map_dict[key]
+            pred_map_dict[ensemble_key]/=len(model_keys)
+        
+            actual_batch_size =  image_patches.shape[0]
+            for j in range(actual_batch_size):
+                x = int(xes[j])
+                y = int(ys[j])
+
+                wsi_img = image_patches[j]*128+128
+                patch_mask = TissueMaskGenerationPatch(wsi_img)
+
+                #CRF
+                # prediction = red_map[j,:,:,:]
+                # prediction = post_process_crf(wsi_img,prediction,2)
+                for key in models_to_save:
+                    prediction = pred_map_dict[key][j,:,:,1]
+
+                    prediction*=patch_mask
+
+                    prd_im_fll_dict[key][tmp_mns(x):tmp_pls(x),tmp_mns(y):tmp_pls(y)] += prediction
+                count_map[tmp_mns(x):tmp_pls(x),tmp_mns(y):tmp_pls(y)] += np.ones((image_size,image_size),dtype='uint8')
+            if (i+1)%100==0 or i==0 or i<10:
+                print("Completed %i Time elapsed %.2f min | Max count %d "%(i,(time.time()-start_time)/60,count_map.max()))
+            
+        print("Fully completed %i Time elapsed %.2f min | Max count %d "%(i,(time.time()-start_time)/60,count_map.max()))
+        start_time = time.time()
+
+        print("\t Dividing by count_map")
+        np.place(count_map, count_map==0, 1)
+        for key in models_to_save:
+            prd_im_fll_dict[key]/=count_map
+        # scaled_count_map = scale(count_map)
+        # scaled_count_map = scaled_count_map*255//scaled_count_map.max()
+        del count_map
+        gc.collect()
+
+        print("\t Scaling prediciton")
+        prob_map_dict = {}
+        for key in  models_to_save:
+            prob_map_dict[key] = scale(prd_im_fll_dict[key])
+            prob_map_dict[key] = (prob_map_dict[key]*255).astype('uint8')
+
+        print("\t Thresholding prediction")
+        threshold = 0.5
+        for key in  models_to_save:
+            np.place(prd_im_fll_dict[key],prd_im_fll_dict[key]>=threshold, 1)
+            np.place(prd_im_fll_dict[key],prd_im_fll_dict[key]<threshold, 0)
+
+        # print("\t Saving ground truth")
+        # save_model_keys = models_to_save
+        # for key in  save_model_keys:
+            # print("\t Saving to %s %s" %(out_file,key))
+            # tifffile.imsave(os.path.join(out_dir_dict[key],out_file)+'.tif', prd_im_fll_dict[key].T, compress=9)
+        # print("\t Calculated in %f" % ((time.time() - start_time)/60))
+        # start_time = time.time()
+
+        scaled_prd_im_fll_dict = {}
+        for key in  models_to_save:
+            scaled_prd_im_fll_dict[key] = scale(prd_im_fll_dict[key])
+        del prd_im_fll_dict
+        gc.collect()
+
+        # mask_im = np.dstack([dataset_obj.get_mask().T]*3).astype('uint8')*255
+        mask_im = np.dstack([TissueMaskGenerationPatch(im_im)]*3).astype('uint8')*255
+        for key in  models_to_save:
+            mask_im[:,:,0] = scaled_prd_im_fll_dict[key]*255
+            ov_prob_stride = st_im + (np.dstack([prob_map_dict[key]]*3)*255).astype('uint8')
+            np.place(ov_prob_stride,ov_prob_stride>255,255)
+            imsave(mask_im,ov_prob_stride,prob_map_dict[key],scaled_prd_im_fll_dict[key],im_im,out=os.path.join(out_dir_dict[key],'ref_'+out_file)+'.png')
+
+    # for key in  models_to_save:
+        # with open(os.path.join(out_dir_dict[key],'jacc_scores.txt'), 'a') as f:
+            # f.write("Total,%f\n" %(total_jacc_score_dict[key]/len(sample_ids)))
