@@ -24,11 +24,14 @@ Training is divided into two stages
 1. Extraction of patches - Patch coordinates are extracted randomly and stored in text files
 1. Model training - The text files are used to train the models by generating the images on the fly
 
-#### Model training
+#### Patch extraction
 The `points_extractor.py` under `code_cm17/patch_extraction` is responsible for this.
 
 #### Model training
-Run the `trainer.py` file present under `code_cm17/trainer` to train the three models
+Run the `trainer.py` file present under `code_cm17/trainer` to train the three models.
+
+### Inference
+Edit the `CONFIG` dictionary in `code_cm17/inference/predict.py` and run the script.
 
 ## DigiPathAI
 We packaged our inference pipeline into an full-fledged GUI application. Check it out [here](https://github.com/haranrk/DigiPathAI). It also contains our trained models for DigestPath and PAIP dataset.
