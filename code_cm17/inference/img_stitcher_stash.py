@@ -249,6 +249,7 @@ def TissueMaskGeneration(slide_obj, level, RGB_min=50):
     # b = img_RGB[:,:,2] < 235
     # tissue_mask = np.logical_or(r,np.logical_or(g,b))
     return tissue_mask 
+
 def TissueMaskGenerationPatch(patchRGB):
     '''
     Returns mask of tissue that obeys the threshold set by paip
@@ -356,32 +357,21 @@ class WSIStridedPatchDataset(Dataset):
         
         factor = self._sampling_stride
 
-        
         if self._mask_path is not None:
-            mask_file_name = os.path.basename(self._mask_path)
-            if mask_file_name.endswith('.tiff'):
-                mask_obj = openslide.OpenSlide(self._mask_path)
-                self._mask = np.array(mask_obj.read_region((0, 0),
-                       self._level,
-                       mask_obj.level_dimensions[self._level]).convert('L')).T
-                np.place(self._mask,self._mask>0,255)
+            pass
         else:
             # Generate tissue mask on the fly    
-            
             self._mask = TissueMaskGeneration(self._slide, self._level)
+
         # morphological operations ensure the holes are filled in tissue mask
         # and minor points are aggregated to form a larger chunk         
-
         self._mask = BinMorphoProcessMask(np.uint8(self._mask))
+
         # self._all_bbox_mask = get_all_bbox_masks(self._mask, factor)
         # self._largest_bbox_mask = find_largest_bbox(self._mask, factor)
         # self._all_strided_bbox_mask = get_all_bbox_masks_with_stride(self._mask, factor)
 
         X_mask, Y_mask = self._mask.shape
-        # print (self._mask.shape, np.where(self._mask>0))
-        # imshow(self._mask.T)
-        # cm17 dataset had issues with images being power's of 2 precisely        
-#         if X_slide != X_mask or Y_slide != Y_mask:
         print('Mask (%d,%d) and Slide(%d,%d) '%(X_mask,Y_mask,X_slide,Y_slide))
         if X_slide // X_mask != Y_slide // Y_mask:
             raise Exception('Slide/Mask dimension does not match ,'
@@ -407,9 +397,6 @@ class WSIStridedPatchDataset(Dataset):
             # self._strided_mask = self._all_strided_bbox_mask  
         else:
             self._strided_mask = ones_mask  
-        # print (np.count_nonzero(self._strided_mask), np.count_nonzero(self._mask[::factor, ::factor]))
-        # imshow(self._strided_mask.T, self._mask[::factor, ::factor].T)
-        # imshow(self._mask.T, self._strided_mask.T)
  
         self._X_idcs, self._Y_idcs = np.where(self._strided_mask)        
         self._idcs_num = len(self._X_idcs)
@@ -493,26 +480,7 @@ class WSIStridedPatchDataset(Dataset):
             img = (img - 128.0)/128.0
    
         return (img, x, y, label_img)
-#CONFIG
-# batch_size = 40
-# image_size = 256
-# sampling_stride = 128
-batch_size = 100
-image_size = 256
-sampling_stride = 256
-kfold_k = 5
-fold = 0
-out_dir_root = '../../results/saved_imgs'
 
-#Model loading
-os.environ["CUDA_VISIBLE_DEVICES"] = '0'
-core_config = tf.ConfigProto()
-core_config.gpu_options.allow_growth = False
-# core_config.gpu_options.per_process_gpu_memory_fraction=0.47
-session =tf.Session(config=core_config) 
-K.set_session(session)
-
-#Inception
 def load_incep_resnet(model_path):
     model = get_inception_resnet_v2_unet_softmax((None, None), weights=None)
     model.load_weights(model_path)
@@ -531,15 +499,31 @@ def load_deeplabv3(model_path, OS):
     print ("Loaded Model Weights %s" % model_path)
     return model
 
-# model_path = glob.glob('../../results/saved_models/incep_viable_200k/5fold_0/sel-model.10*')[0]
+#---------CONFIG----------#
+#Edit the config section with the appropriate values
+batch_size = 40
+image_size = 1024
+sampling_stride = 512
+kfold_k = 5
+fold = 2
+out_dir_root = '../../results/saved_imgs'
+
+#Model loading
+os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+core_config = tf.ConfigProto()
+core_config.gpu_options.allow_growth = False
+# core_config.gpu_options.per_process_gpu_memory_fraction=0.47
+session =tf.Session(config=core_config) 
+K.set_session(session)
+
 model_dict = {
-        'train_30': load_incep_resnet('../../results/saved_models/incep_imagenet_200k/5fold_0/sel-model.11-0.16.h5'),
-        'train_31': load_incep_resnet('../../results/saved_models/incep_imagenet_200k/5fold_0/sel-model.12-0.17.h5'),
-        # 'train_23': load_unet_densenet('../../results/saved_models/dense_viable_200k/5fold_3/model.28-0.08.h5'),
-        # 'train_24': load_deeplabv3('../../results/saved_models/deeplab_viable_200k/5fold_4/sel-model.20-0.13.h5',OS=16),
+        'train_55': load_incep_resnet('../../results/saved_models/inception_200k/5fold_2/model.18-0.07.h5'),
+        'train_56': load_unet_densenet('../../results/saved_models/densenet_200k/5fold_2/model.16-0.07.h5'),
+        'train_57': load_deeplabv3('../../results/saved_models/deeplab_200k/5fold_2/model.14-0.07.h5',OS=16),
         }
 model_keys = list(model_dict.keys())
-ensemble_key = 'train_32'
+ensemble_key = 'train_58'
+#---------CONFIG----------#
 model_dict[ensemble_key] = 'ensemble'
 
 out_dir_dict = {}

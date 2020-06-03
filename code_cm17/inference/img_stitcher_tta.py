@@ -51,9 +51,6 @@ import tifffile
 import skimage.io as io
 
 
-# In[50]:
-
-
 # Image Helper Functions
 def imsave(*args, **kwargs):
      """
@@ -114,6 +111,7 @@ def imshow(*args,**kwargs):
             if axis_off: 
               plt.axis('off')  
     plt.show()
+
 def normalize_minmax(data):
     """
     Normalize contrast across volume
@@ -225,7 +223,6 @@ def find_largest_bbox(mask, stride_factor):
     bbox_mask[x_min:x_max, y_min:y_max]=1
     return bbox_mask
     
-    
 def TissueMaskGeneration(slide_obj, level, RGB_min=50):
     img_RGB = slide_obj.read_region((0, 0),level,slide_obj.level_dimensions[level])
     img_RGB = np.transpose(np.array(img_RGB.convert('RGB')),axes=[1,0,2])
@@ -245,6 +242,7 @@ def TissueMaskGeneration(slide_obj, level, RGB_min=50):
     # b = img_RGB[:,:,2] < 235
     # tissue_mask = np.logical_or(r,np.logical_or(g,b))
     return tissue_mask 
+
 def TissueMaskGenerationPatch(patchRGB):
     '''
     Returns mask of tissue that obeys the threshold set by paip
@@ -280,13 +278,6 @@ def labelthreshold(image, threshold=0.5):
     np.place(image,image<threshold, 0)
     return np.uint8(image)
 
-
-
-
-# In[41]:
-
-
-# DataLoader Implementation
 class WSIStridedPatchDataset(Dataset):
     """
     Data producer that generate all the square grids, e.g. 3x3, of patches,
@@ -347,16 +338,9 @@ class WSIStridedPatchDataset(Dataset):
 
         
         if self._mask_path is not None:
-            mask_file_name = os.path.basename(self._mask_path)
-            if mask_file_name.endswith('.tiff'):
-                mask_obj = openslide.OpenSlide(self._mask_path)
-                self._mask = np.array(mask_obj.read_region((0, 0),
-                       self._level,
-                       mask_obj.level_dimensions[self._level]).convert('L')).T
-                np.place(self._mask,self._mask>0,255)
+            pass
         else:
             # Generate tissue mask on the fly    
-            
             self._mask = TissueMaskGeneration(self._slide, self._level)
         # morphological operations ensure the holes are filled in tissue mask
         # and minor points are aggregated to form a larger chunk         

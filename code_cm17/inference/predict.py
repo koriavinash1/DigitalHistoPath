@@ -375,10 +375,6 @@ class WSIStridedPatchDataset(Dataset):
         # self._all_strided_bbox_mask = get_all_bbox_masks_with_stride(self._mask, factor)
 
         X_mask, Y_mask = self._mask.shape
-        # print (self._mask.shape, np.where(self._mask>0))
-        # imshow(self._mask.T)
-        # cm17 dataset had issues with images being power's of 2 precisely        
-#         if X_slide != X_mask or Y_slide != Y_mask:
         print('Mask (%d,%d) and Slide(%d,%d) '%(X_mask,Y_mask,X_slide,Y_slide))
         if X_slide // X_mask != Y_slide // Y_mask:
             raise Exception('Slide/Mask dimension does not match ,'
@@ -433,16 +429,10 @@ class WSIStridedPatchDataset(Dataset):
     
     def __getitem__(self, idx):
         x_coord, y_coord = self._X_idcs[idx], self._Y_idcs[idx]
-        
         x_max_dim,y_max_dim = self._slide.level_dimensions[0]
-
-        # x = int(x_coord * self._resolution)
-        # y = int(y_coord * self._resolution)    
 
         x = int(x_coord * self._resolution - self._image_size//2)
         y = int(y_coord * self._resolution - self._image_size//2)    
-#         x = int(x_coord * self._resolution)
-#         y = int(y_coord * self._resolution)    
         
         #If Image goes out of bounds
         if x>(x_max_dim - image_size):
@@ -462,7 +452,6 @@ class WSIStridedPatchDataset(Dataset):
             label_img = self._label_slide.read_region(
                 (x, y), 0, (self._image_size, self._image_size)).convert('L')
         else:
-            #print('No label img')
             label_img = Image.fromarray(np.zeros((self._image_size, self._image_size), dtype=np.uint8))
         
         if self._flip == 'FLIP_LEFT_RIGHT':
