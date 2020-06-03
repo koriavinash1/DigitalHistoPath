@@ -480,75 +480,83 @@ class WSIStridedPatchDataset(Dataset):
    
         return (img, x, y, label_img)
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('models',type=str,help="Comma-separated list of models to train. Format: modelname-fold. Eg. inception-0 will take the model tagged as sel in the first fold of inceptino")
-    parser.add_argument('fold',choices=['1','2','3','4','5','all','valid'],type=str,help="Fold of the training data to infer on")
-    parser.add_argument('-x','--save-strategy', choices=['score','images'], type=str, help="Whether to save only the jaccard indices or the full images")
-    parser.add_argument('-b','--batch_sz',default=16,type=int,help="Batch size for inference")
-    parser.add_argument('-i', '--patch_sz', default=1024,type=int,help="Patch size for inference")
-    parser.add_argument('-s', '--stride', default=128,type=int,help="Sampling size for inference")
-    parser.add_argument('--GPU', default='0', type=str, help='which GPU to use. default 0')
 
+def load_incep_resnet(model_path):
+    model = get_inception_resnet_v2_unet_softmax((None, None), weights=None)
+    model.load_weights(model_path)
+    print ("Loaded Model Weights %s" % model_path)
+    return model
+
+def load_unet_densenet(model_path):
+    model = unet_densenet121((None, None), weights=None)
+    model.load_weights(model_path)
+    print ("Loaded Model Weights %s" % model_path)
+    return model
+
+def load_deeplabv3(model_path, OS):
+    model = Deeplabv3(input_shape=(image_size, image_size, 3),weights=None,classes=2,activation='softmax',backbone='xception',OS=OS)
+    model.load_weights(model_path)
+    print ("Loaded Model Weights %s" % model_path)
+    return model
+
+if __name__ == '__main__':
     #CONFIG
-    args = parser.parse_args()
-    kfold_k = 5
-    batch_size = args.batch_sz
-    image_size = args.patch_sz
-    sampling_stride = args.stride
-    fold = args.fold
-    out_dir_root = '../../results/saved_imgs'
+    CONFIG = {
+        "in_folder": "/Path", #Path to folder containing folders of each input images
+        "label": "True", #If true, the ground truth for each sample must be place in the adjacent to the input image. Output images will include the label for easy comparison
+        "out_folder": "/Path", #Path to folder to output results
+        "memmap_folder": "/Path", #Path to folder for storing numpy memmap arrays
+        "GPU": "0",
+        "batch_size": 32,
+        "patch_size": 1024, 
+        "stride": 512,
+        "models": {
+            'id1': {"model_type": "inception", "model_path": "/Path.h5"},
+            'id2': {"model_type": "densenet", "model_path": "/Path.h5"},
+            'id3': {"model_type": "deeplab", "model_path": "/Path.h5"},
+            'id4': {"model_type": "ensemble"},
+            },
+        "models_to_save": ['id4'],
+        }
+
+
+    batch_size = CONFIG["batch_size"]
+    image_size = CONFIG["patch_size"]
+    sampling_stride = CONFIG["stride"]
+    out_dir_root = CONFIG["out_folder"]
 
     #Model loading
-    os.environ["CUDA_VISIBLE_DEVICES"] = args.GPU
+    os.environ["CUDA_VISIBLE_DEVICES"] = CONFIG["GPU"]
     core_config = tf.ConfigProto()
     core_config.gpu_options.allow_growth = False
     # core_config.gpu_options.per_process_gpu_memory_fraction=0.47
     session =tf.Session(config=core_config) 
     K.set_session(session)
 
-    #Inception
-    def load_incep_resnet(model_path):
-        model = get_inception_resnet_v2_unet_softmax((None, None), weights=None)
-        model.load_weights(model_path)
-        print ("Loaded Model Weights %s" % model_path)
-        return model
-
-    def load_unet_densenet(model_path):
-        model = unet_densenet121((None, None), weights=None)
-        model.load_weights(model_path)
-        print ("Loaded Model Weights %s" % model_path)
-        return model
-
-    def load_deeplabv3(model_path, OS):
-        model = Deeplabv3(input_shape=(image_size, image_size, 3),weights=None,classes=2,activation='softmax',backbone='xception',OS=OS)
-        model.load_weights(model_path)
-        print ("Loaded Model Weights %s" % model_path)
-        return model
 
     infer_paths = glob.glob(os.path.join(out_dir_root,"infer-*"))
     infer_paths.sort()
     last_infer_path_id = int(infer_paths[-1].split('-')[-1])
 
-    model_codes = args.models.split(',')
     model_dict= {}
-    for model_code in model_codes:
-        last_infer_path_id +=1
-        model_type,model_fold = model_code.split('-')
-        model_path = glob.glob('../../results/saved_models/%s_200k/5fold_%s/sel-*' %(model_type, model_fold))[0]
+    for k,v in CONFIG["models"]:
+        model_type = v["model_type"]
+        model_path = v["model_path"]
         if model_type == 'inception':
-            model_dict['infer-%d'%last_infer_path_id] = load_incep_resnet(model_path)
+            model_dict[k] = load_incep_resnet(model_path)
         elif model_type == 'densenet':
-            model_dict['infer-%d'%last_infer_path_id] = load_unet_densenet(model_path)
+            model_dict[k] = load_unet_densenet(model_path)
         elif model_type == 'deeplab':
-            model_dict['infer-%d'%last_infer_path_id] = load_deeplabv3(model_path,16)
+            model_dict[k] = load_deeplabv3(model_path,16)
+        elif model_type == 'ensemble':
+            model_dict[k] = 'ensemble'
+
         
     model_keys = list(model_dict.keys())
     ensemble_key = 'train_43'
-    model_dict[ensemble_key] = 'ensemble'
-    out_dir_dict = {}
-    models_to_save = [ensemble_key] + model_keys
+    models_to_save = CONFIG["models_to_save"]
 
+    out_dir_dict = {}
     for key in models_to_save:
         out_dir_dict[key] = os.path.join(out_dir_root,key)
         try:
@@ -563,30 +571,27 @@ if __name__ == '__main__':
     #Stitcher
     start_time = time.time()
 
-    mode = 'validation'
-    if fold == 'all':
-        sample_ids = os.listdir('../../data/raw-data/train')
-    else:
-        sample_ids = [ x.split('/')[-2] for x in list(pd.read_csv('../../data/raw-data/cross_val_splits_%d_whole/%s_fold_%d.csv'%(kfold_k,mode,fold))['Image_Path'])]
-
+    sample_ids = os.listdir(CONFIG["in_folder"])
     for i,sample_id in enumerate(sample_ids):
         print(i+1,'/', len(sample_ids),sample_id)
-        sample_dir = os.path.join('..','..','data','raw-data','train',sample_id)
+        sample_dir = os.path.join(CONFIG["in_folder"],sample_id)
         wsi_path = glob.glob(os.path.join(sample_dir,'*.svs'))[0]
-        label_path = glob.glob(os.path.join(sample_dir,'*viable*.tiff'))[0]
+        if CONFIG["label"]== "True":
+            label_path = glob.glob(os.path.join(sample_dir,'*viable*.tiff'))[0]
+        else:
+            label_path=None
 
         wsi_obj = openslide.OpenSlide(wsi_path)
         x_max_dim,y_max_dim = wsi_obj.level_dimensions[0]
         count_map = np.zeros(wsi_obj.level_dimensions[0],dtype='uint8')
         prd_im_fll_dict = {}
         for key in models_to_save:
-            # prd_im_fll_dict[key] = np.zeros(wsi_obj.level_dimensions[0])
-            prd_im_fll_dict[key] = np.memmap('/home/brats/Documents/memmaps/%s.dat'%(key), dtype=np.float32,mode='w+', shape=(wsi_obj.level_dimensions[0]))                                                   
-
+            prd_im_fll_dict[key] = np.memmap(os.path.join(CONFIG["memmap_folder"],'%s.dat'%(key)), dtype=np.float32,mode='w+', shape=(wsi_obj.level_dimensions[0]))                                                   
         if len(wsi_obj.level_dimensions) == 3:
             level = 2
         elif len(wsi_obj.level_dimensions) == 4:
             level = 3
+
         scld_dms = wsi_obj.level_dimensions[level]
         scale_sampling_stride = sampling_stride//int(wsi_obj.level_downsamples[level])
         print("Level %d , stride %d, scale stride %d" %(level,sampling_stride, scale_sampling_stride))
@@ -604,8 +609,7 @@ if __name__ == '__main__':
 
         dataloader = DataLoader(dataset_obj, batch_size=batch_size, num_workers=batch_size, drop_last=True)
         dataset_obj.save_scaled_imgs()
-        out_file = wsi_path.split('/')[-1].split('.')[0]
-        # out_file = sample_id
+        out_file = sample_id
 
         print(dataset_obj.get_mask().shape)
         st_im = dataset_obj.get_strided_mask()
@@ -645,10 +649,9 @@ if __name__ == '__main__':
                 # prediction = post_process_crf(wsi_img,prediction,2)
                 for key in models_to_save:
                     prediction = pred_map_dict[key][j,:,:,1]
-
                     prediction*=patch_mask
-
                     prd_im_fll_dict[key][tmp_mns(x):tmp_pls(x),tmp_mns(y):tmp_pls(y)] += prediction
+
                 count_map[tmp_mns(x):tmp_pls(x),tmp_mns(y):tmp_pls(y)] += np.ones((image_size,image_size),dtype='uint8')
             if (i+1)%100==0 or i==0 or i<10:
                 print("Completed %i Time elapsed %.2f min | Max count %d "%(i,(time.time()-start_time)/60,count_map.max()))
@@ -677,13 +680,13 @@ if __name__ == '__main__':
             np.place(prd_im_fll_dict[key],prd_im_fll_dict[key]>=threshold, 1)
             np.place(prd_im_fll_dict[key],prd_im_fll_dict[key]<threshold, 0)
 
-        # print("\t Saving ground truth")
-        # save_model_keys = models_to_save
-        # for key in  save_model_keys:
-            # print("\t Saving to %s %s" %(out_file,key))
-            # tifffile.imsave(os.path.join(out_dir_dict[key],out_file)+'.tif', prd_im_fll_dict[key].T, compress=9)
-        # print("\t Calculated in %f" % ((time.time() - start_time)/60))
-        # start_time = time.time()
+        print("\t Saving ground truth")
+        save_model_keys = models_to_save
+        for key in  save_model_keys:
+            print("\t Saving to %s %s" %(out_file,key))
+            tifffile.imsave(os.path.join(out_dir_dict[key],out_file)+'.tif', prd_im_fll_dict[key].T, compress=9)
+        print("\t Calculated in %f" % ((time.time() - start_time)/60))
+        start_time = time.time()
 
         scaled_prd_im_fll_dict = {}
         for key in  models_to_save:
