@@ -18,10 +18,13 @@ Our framework placed in several [grand-challenges](https://grand-challenge.org/c
 | [DigestPath 2019](https://digestpath2019.grand-challenge.org/Dataset/)     | Segmentation of Colon Cancer   | 4<sup>th</sup>       |
 
 ## Instructions
+Kindly note that this repository has been made available as it was at the time of writing our paper. You may have to modify hard-coded parameters present in the code (data locations, image sizes etc) for the scripts to work for you. Kindly write to us if you have any difficulty in doing so. 
+
 ### Training
-Training is divided into two stages
+Training is divided into two stages: 
 1. Extraction of patches - Patch coordinates are extracted randomly and stored in text files
 1. Model training - The text files are used to train the models by generating the images on the fly
+
 
 #### Patch extraction
 The `points_extractor.py` under `code_cm17/patch_extraction` is responsible for this.
