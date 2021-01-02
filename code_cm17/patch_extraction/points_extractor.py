@@ -36,9 +36,13 @@ parser.add_argument('tumor_type')
 args = parser.parse_args()
 print(args)
 
+#Change the following variables based on your needs
 n_samples = 50
 train_n_patches = 2000
 train_t_patches = 2000
+data_path = os.path.join('..','..','data','raw-data','train')
+out_path = os.path.join(data_path,'..','patch_coords_%dk'%(total_train*n_samples//1000))
+
 total_train = train_n_patches+train_t_patches
 print(total_train*n_samples)
 
@@ -47,8 +51,6 @@ valid_t_patches = train_t_patches//5
 total_valid = valid_n_patches+valid_t_patches
 print(total_valid*n_samples)
 
-data_path = os.path.join('..','..','data','raw-data','train')
-out_path = os.path.join(data_path,'..','patch_coords_%dk'%(total_train*n_samples//1000))
 
 if not os.path.isdir(out_path):
     os.makedirs(out_path)
