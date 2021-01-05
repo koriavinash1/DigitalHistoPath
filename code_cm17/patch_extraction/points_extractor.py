@@ -245,7 +245,7 @@ def ShuffleAndSampleFirstN(data, n=10):
     return sample
 
 def RandomUniformSample(data, n=1000, factor=1):
-    data=copy.deepcopy(data);
+    # data=copy.deepcopy(data);
     if len(data) <= n:
         sample_n = len(data)*factor        
     else:
