@@ -41,9 +41,10 @@ n_samples = 50
 train_n_patches = 2000
 train_t_patches = 2000
 data_path = os.path.join('..','..','data','raw-data','train')
-out_path = os.path.join(data_path,'..','patch_coords_%dk'%(total_train*n_samples//1000))
 
 total_train = train_n_patches+train_t_patches
+out_path = os.path.join(data_path,'..','patch_coords_%dk'%(total_train*n_samples//1000))
+
 print(total_train*n_samples)
 
 valid_n_patches = train_n_patches//5
