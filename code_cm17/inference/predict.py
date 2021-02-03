@@ -534,9 +534,9 @@ if __name__ == '__main__':
     K.set_session(session)
 
 
-    infer_paths = glob.glob(os.path.join(out_dir_root,"infer-*"))
-    infer_paths.sort()
-    last_infer_path_id = int(infer_paths[-1].split('-')[-1])
+    # infer_paths = glob.glob(os.path.join(out_dir_root,"infer-*"))
+    # infer_paths.sort()
+    # last_infer_path_id = int(infer_paths[-1].split('-')[-1])
 
     model_dict= {}
     for k,v in CONFIG["models"]:
