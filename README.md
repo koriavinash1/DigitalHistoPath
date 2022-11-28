@@ -1,7 +1,7 @@
 # DigitalHistoPath
 [![arXiv](https://img.shields.io/badge/arXiv-2001.00258-<COLOR>.svg)](https://arxiv.org/abs/2001.00258)
 
-This repository contains the code for the cancer analysis framework proposed in [the paper](https://arxiv.org/abs/2001.00258) "A Generalized Deep Learning Framework for Whole-Slide Image Segmentation and Analysis"
+This repository contains the code for the cancer analysis framework proposed in [the paper](https://www.nature.com/articles/s41598-021-90444-8) "A Generalized Deep Learning Framework for Whole-Slide Image Segmentation and Analysis"
 
 ## Brief Overview of Framework 
 The framework consists of a segmentation algorithm optimized for histopathology tissue samples. A patch-based approach is utilized to break down the large size of these images.
